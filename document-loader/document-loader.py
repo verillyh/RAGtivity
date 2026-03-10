@@ -1,37 +1,21 @@
 from fastapi import FastAPI, UploadFile
 import tempfile
 import shutil
-from langchain_community.document_loaders import PyPDFLoader
-from langchain_google_genai import GoogleGenerativeAIEmbeddings
-from langchain_text_splitters import RecursiveCharacterTextSplitter
+from text_processing import split_and_get_embeddings
+from file_loader import extract_text_from_file
 
 app = FastAPI(title="Document Loader Service")
-embeddings = GoogleGenerativeAIEmbeddings(model="models/gemini-embedding-001", output_dimensionality=768)
 
-def split_and_get_embeddings(docs_content):
-    splitter = RecursiveCharacterTextSplitter(
-        chunk_size=1000, 
-        chunk_overlap=200,
-        add_start_index=True
-    )
-    # Use split_text() to only return the chunked text array
-    splits = splitter.split_text(docs_content)
-    # Get the embeddings for each chunk of texts
-    text_embeddings = embeddings.embed_documents(splits)
-    return splits, text_embeddings
-
-
-@app.post("/load/pdf")
-def load_pdf(file: UploadFile):
-    # UploadFile returns a SpooledTemporaryFile, but we need a NamedTemporaryFile 
+@app.post("/load/document")
+def load_document(file: UploadFile):
     with tempfile.NamedTemporaryFile(delete=True) as tmpfile:
-        # Copy the `file` object to tmpfile, which is a NamedTemporaryFile 
         with open(tmpfile.name, "wb") as buffer:
             shutil.copyfileobj(file.file, buffer)
-        # Open the file
-        docs = PyPDFLoader(tmpfile.name).load()
-        # PyPDFLoader loads the file and separates them per page. Combine the pages into a single large string of texts for the whole docs content
-        docs_content = '\n'.join([d.page_content for d in docs])
-        # Chunk and get the text embeddings
-        chunked_text, text_embeddings = split_and_get_embeddings(docs_content)
-        return {"text": chunked_text, "embeddings": text_embeddings}
+
+        raw_text = extract_text_from_file(tmpfile.name, file.filename)
+        chunks, embeddings_list = split_and_get_embeddings(raw_text)
+
+        return {
+            "text": chunks,
+            "embeddings": [emb.tolist() for emb in embeddings_list]
+        }
