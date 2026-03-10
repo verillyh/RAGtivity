@@ -17,7 +17,7 @@ class LangchainRuntimeContext:
     mongoClient: MongoClient
     userId: str
 
-DOCUMENT_LOADER_URL = "http://document-loader:8001/load/pdf"
+DOCUMENT_LOADER_URL = "http://document-loader:8001/load/document"
 UPLOAD_DIR = "/uploaded_docs"
 os.makedirs(UPLOAD_DIR, exist_ok=True)
 
